@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:insta_counter_app/core/mock/mock_devices.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:insta_counter_app/core/models/icrew_device.dart';
+import 'package:insta_counter_app/core/services/icrew_discovery_service.dart';
 import 'package:insta_counter_app/core/theme/app_theme.dart';
-import 'package:insta_counter_app/features/device/device_setup_screen.dart';
+import 'package:insta_counter_app/features/device/device_manage_screen.dart';
 import 'package:insta_counter_app/widgets/device_card.dart';
 import 'package:insta_counter_app/widgets/loading_shimmer.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:wifi_scan/wifi_scan.dart';
 
 class DeviceScanScreen extends StatefulWidget {
   const DeviceScanScreen({super.key});
@@ -14,19 +18,50 @@ class DeviceScanScreen extends StatefulWidget {
 }
 
 class _DeviceScanScreenState extends State<DeviceScanScreen> {
+  final _discovery = const IcrewDiscoveryService();
   bool _scanning = false;
   bool _hasResults = false;
+  List<IcrewDevice> _devices = const [];
+  String? _wifiHint;
+
+  String? _wifiScanHintFromEnum(CanStartScan c) {
+    switch (c) {
+      case CanStartScan.yes:
+        return null;
+      case CanStartScan.notSupported:
+        return 'Wi‑Fi scan is not supported on this device.';
+      case CanStartScan.noLocationPermissionRequired:
+      case CanStartScan.noLocationPermissionDenied:
+      case CanStartScan.noLocationPermissionUpgradeAccuracy:
+        return 'Allow location access so Android can list nearby Wi‑Fi (needed to see IcrewSetup-… hotspots).';
+      case CanStartScan.noLocationServiceDisabled:
+        return 'Turn on Location services to scan for IcrewSetup hotspots.';
+      case CanStartScan.failed:
+        return 'Wi‑Fi scan could not start. Try again in a few seconds.';
+    }
+  }
 
   Future<void> _runScan() async {
     setState(() {
       _scanning = true;
       _hasResults = false;
+      _wifiHint = null;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 1600));
+
+    if (Platform.isAndroid) {
+      final can = await WiFiScan.instance.canStartScan(askPermissions: true);
+      if (can != CanStartScan.yes) {
+        setState(() => _wifiHint = _wifiScanHintFromEnum(can));
+      }
+    }
+
+    final list = await _discovery.discoverAll();
     if (!mounted) return;
+
     setState(() {
       _scanning = false;
       _hasResults = true;
+      _devices = list;
     });
   }
 
@@ -38,13 +73,24 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Scan nearby ESP32 displays (mock). Future builds will use BLE / mDNS.',
+            'Scans for IcrewSetup-XXXX hotspots (Android) and for Icrew boards on your LAN (mDNS). Each board has a unique code in firmware.',
             style: GoogleFonts.dmSans(
               color: Colors.white54,
               fontSize: 13,
               height: 1.4,
             ),
           ),
+          if (_wifiHint != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _wifiHint!,
+              style: GoogleFonts.dmSans(
+                color: AppTheme.accentSecondary,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _scanning ? null : _runScan,
@@ -76,30 +122,45 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
                       ],
                     )
                   : _hasResults
-                      ? ListView.separated(
-                          key: const ValueKey('results'),
-                          itemCount: MockDevice.all.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, i) {
-                            final d = MockDevice.all[i];
-                            return DeviceCard(
-                              device: d,
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        DeviceSetupScreen(device: d),
-                                  ),
+                      ? _devices.isEmpty
+                          ? Center(
+                              key: const ValueKey('empty_results'),
+                              child: Text(
+                                'No Icrew devices found.\n'
+                                '• Power an ESP32 with this firmware (unique hotspot IcrewSetup-…).\n'
+                                '• On Android, allow location and try again.\n'
+                                '• On LAN, ensure the phone is on the same Wi‑Fi as the display.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dmSans(
+                                  color: Colors.white38,
+                                  height: 1.45,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              key: const ValueKey('results'),
+                              itemCount: _devices.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, i) {
+                                final d = _devices[i];
+                                return DeviceCard(
+                                  device: d,
+                                  onTap: () {
+                                    Navigator.of(context).push<void>(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            DeviceManageScreen(device: d),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
-                            );
-                          },
-                        )
+                            )
                       : Center(
                           key: const ValueKey('empty'),
                           child: Text(
-                            'Tap Scan Devices to discover mock hardware.',
+                            'Tap Scan Devices to find nearby Icrew hardware.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.dmSans(color: Colors.white38),
                           ),

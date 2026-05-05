@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:insta_counter_app/core/mock/mock_devices.dart';
+import 'package:insta_counter_app/core/models/icrew_device.dart';
 import 'package:insta_counter_app/core/theme/app_theme.dart';
 
 class DeviceCard extends StatelessWidget {
@@ -11,9 +11,20 @@ class DeviceCard extends StatelessWidget {
     this.connected = false,
   });
 
-  final MockDevice device;
+  final IcrewDevice device;
   final VoidCallback onTap;
   final bool connected;
+
+  String _sourceLine() {
+    final parts = <String>[];
+    if (device.sources.contains(IcrewDiscoverySource.provisioningHotspot)) {
+      parts.add('Hotspot');
+    }
+    if (device.sources.contains(IcrewDiscoverySource.mdnsLan)) {
+      parts.add('LAN');
+    }
+    return parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +58,7 @@ class DeviceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      device.name,
+                      device.displayName,
                       style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -55,12 +66,23 @@ class DeviceCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Signal: ${device.signalLabel}',
+                      'Code ${device.deviceCode} · ${_sourceLine()} · ${device.signalLabel}',
                       style: GoogleFonts.dmSans(
                         color: Colors.white54,
-                        fontSize: 13,
+                        fontSize: 12,
+                        height: 1.35,
                       ),
                     ),
+                    if (device.provisioningWifiSsid != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Join: ${device.provisioningWifiSsid}',
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

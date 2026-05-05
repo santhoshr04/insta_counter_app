@@ -3,6 +3,7 @@ import 'package:insta_counter_app/core/constants/app_constants.dart';
 import 'package:insta_counter_app/core/theme/app_theme.dart';
 import 'package:insta_counter_app/features/splash/splash_screen.dart';
 import 'package:insta_counter_app/providers/counter_notifier.dart';
+import 'package:insta_counter_app/providers/device_hub_notifier.dart';
 import 'package:insta_counter_app/providers/shell_tab_notifier.dart';
 import 'package:insta_counter_app/providers/theme_variant_notifier.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,7 @@ class InstaCounterApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CounterNotifier()),
+        ChangeNotifierProvider(create: (_) => DeviceHubNotifier()),
         ChangeNotifierProvider(create: (_) => ShellTabNotifier()),
         ChangeNotifierProvider(create: (_) => ThemeVariantNotifier()),
       ],
